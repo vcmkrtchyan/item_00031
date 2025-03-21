@@ -29,17 +29,17 @@ export const fileToBase64 = (file: File): Promise<string> => {
   })
 }
 
-// Download a file from a URL or base64 string
-export const downloadFile = (fileUrl: string, fileName: string) => {
+// Download a file from a base64 string
+export const downloadFile = (fileContent: string, fileName: string) => {
   // Create a link element
   const link = document.createElement("a")
 
-  // If the fileUrl is a base64 string, use it directly
-  if (fileUrl.startsWith("data:")) {
-    link.href = fileUrl
+  // If the fileContent is a base64 string, use it directly
+  if (fileContent.startsWith("data:")) {
+    link.href = fileContent
   } else {
-    // For regular URLs
-    link.href = fileUrl
+    // For regular content, create a data URL
+    link.href = `data:application/octet-stream;base64,${fileContent}`
   }
 
   // Set download attribute with filename
@@ -51,7 +51,7 @@ export const downloadFile = (fileUrl: string, fileName: string) => {
   document.body.removeChild(link)
 }
 
-// Get file type from a file or URL
+// Get file type from a file or content
 export const getFileType = (file: File | string): string => {
   if (typeof file === "string") {
     // Handle base64 strings
@@ -60,7 +60,7 @@ export const getFileType = (file: File | string): string => {
       return match ? match[1] : "unknown/unknown"
     }
 
-    // Handle URLs
+    // Handle file extensions
     const extension = file.split(".").pop()?.toLowerCase()
     switch (extension) {
       case "pdf":

@@ -4,9 +4,9 @@ export interface Document {
   category: string
   uploadDate: string
   expiryDate?: string
-  fileUrl?: string
   fileName?: string
   fileType?: string
+  fileContent?: string
   notes?: string
 }
 

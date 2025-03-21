@@ -16,6 +16,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { fileToBase64 } from "@/lib/file-utils"
+import { estimateDocumentSize, hasEnoughStorageSpace, getLocalStorageUsage, formatBytes } from "@/lib/storage-utils"
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const ACCEPTED_FILE_TYPES = [
@@ -111,13 +112,25 @@ export function DocumentForm({ document, categories, onSave, onAddCategory }: Do
 
     try {
       // Process file if present
-      let fileData = document?.fileUrl
+      let fileContent = document?.fileContent
       let fileName = document?.fileName
       let fileType = document?.fileType
 
       if (file) {
         try {
-          fileData = await fileToBase64(file)
+          // Check file size before processing
+          const estimatedFileSize = file.size * 1.37 // Base64 encoding increases size by ~37%
+
+          if (!hasEnoughStorageSpace(estimatedFileSize)) {
+            const { available } = getLocalStorageUsage()
+            setFileError(
+              `Not enough storage space. This file requires approximately ${formatBytes(estimatedFileSize)}, but only ${formatBytes(available)} is available. Please delete some documents or choose a smaller file.`,
+            )
+            setIsUploading(false)
+            return
+          }
+
+          fileContent = await fileToBase64(file)
           fileName = file.name
           fileType = file.type
         } catch (error) {
@@ -134,10 +147,21 @@ export function DocumentForm({ document, categories, onSave, onAddCategory }: Do
         category: values.category,
         uploadDate: document?.uploadDate || new Date().toISOString(),
         expiryDate: values.expiryDate || undefined,
-        fileUrl: fileData || "/placeholder.svg?height=400&width=300",
+        fileContent: fileContent,
         fileName: fileName || "No file",
         fileType: fileType || "image/svg+xml",
         notes: values.notes,
+      }
+
+      // Check if the entire document will fit in localStorage
+      const documentSize = estimateDocumentSize(newDocument)
+      if (!hasEnoughStorageSpace(documentSize)) {
+        const { available } = getLocalStorageUsage()
+        setFileError(
+          `Not enough storage space. This document requires approximately ${formatBytes(documentSize)}, but only ${formatBytes(available)} is available. Please delete some documents or choose a smaller file.`,
+        )
+        setIsUploading(false)
+        return
       }
 
       onSave(newDocument)

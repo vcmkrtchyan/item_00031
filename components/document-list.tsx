@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { DocumentCard } from "@/components/document-card"
 import { DocumentEditDialog } from "@/components/document-edit-dialog"
 import type { Document, Category } from "@/lib/types"
@@ -12,8 +12,10 @@ interface DocumentListProps {
   documents: Document[]
   categories: Category[]
   onUpdateDocument: (document: Document) => void
-  onDeleteDocument: (id: string) => void
+  onDeleteDocument: (document: Document) => void
   onAddClick?: () => void
+  isFiltered?: boolean
+  allDocumentsCount?: number
 }
 
 export function DocumentList({
@@ -22,9 +24,19 @@ export function DocumentList({
   onUpdateDocument,
   onDeleteDocument,
   onAddClick,
+  isFiltered = false,
+  allDocumentsCount = 0,
 }: DocumentListProps) {
   const [editingDocument, setEditingDocument] = useState<Document | null>(null)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+
+  // Add debugging for documents
+  useEffect(() => {
+    console.log(
+      "DocumentList received documents:",
+      documents.map((doc) => ({ id: doc.id, title: doc.title })),
+    )
+  }, [documents])
 
   const handleEdit = (document: Document) => {
     setEditingDocument(document)
@@ -37,6 +49,11 @@ export function DocumentList({
   const handleSaveEdit = (document: Document) => {
     onUpdateDocument(document)
     setEditingDocument(null)
+  }
+
+  const handleDelete = (document: Document) => {
+    console.log("DocumentList handleDelete called for:", document.id, document.title)
+    onDeleteDocument(document)
   }
 
   return (
@@ -59,7 +76,8 @@ export function DocumentList({
         )}
       </div>
 
-      {documents.length === 0 ? (
+      {documents.length === 0 && !isFiltered && allDocumentsCount === 0 ? (
+        // No documents at all
         <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg bg-muted/50">
           <FileIcon className="h-16 w-16 text-muted-foreground mb-4" />
           <h3 className="text-xl font-medium">No documents yet</h3>
@@ -71,7 +89,17 @@ export function DocumentList({
             Upload Your First Document
           </Button>
         </div>
+      ) : documents.length === 0 && isFiltered ? (
+        // Documents exist but none match the current filter
+        <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg bg-muted/50">
+          <FileIcon className="h-16 w-16 text-muted-foreground mb-4" />
+          <h3 className="text-xl font-medium">No documents in this category</h3>
+          <p className="text-muted-foreground text-center mt-2 mb-6 max-w-md">
+            There are no documents matching your current filter. Try selecting a different category or clear the filter.
+          </p>
+        </div>
       ) : (
+        // Documents to display
         <div className={viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-4"}>
           {documents.map((document) => (
             <DocumentCard
@@ -80,7 +108,7 @@ export function DocumentList({
               categories={categories}
               viewMode={viewMode}
               onEdit={() => handleEdit(document)}
-              onDelete={() => onDeleteDocument(document.id)}
+              onDelete={() => handleDelete(document)}
             />
           ))}
         </div>

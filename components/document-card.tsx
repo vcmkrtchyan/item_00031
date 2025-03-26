@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { DocumentPreviewDialog } from "@/components/document-preview-dialog"
 import { cn } from "@/lib/utils"
 import { downloadFile } from "@/lib/file-utils"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 interface DocumentCardProps {
@@ -27,7 +27,6 @@ interface DocumentCardProps {
 export function DocumentCard({ document, categories, viewMode, onEdit, onDelete }: DocumentCardProps) {
   const [showPreview, setShowPreview] = useState(false)
   const [thumbnailLoaded, setThumbnailLoaded] = useState(false)
-  const { toast } = useToast()
 
   const category = categories.find((c) => c.category === document.category)
 
@@ -82,12 +81,10 @@ export function DocumentCard({ document, categories, viewMode, onEdit, onDelete 
     }
 
     if (!document.fileContent) {
-      toast({
-        title: "No file to download",
+      toast.error("No file to download", {
         description: hasLargeFileTruncated()
           ? "This file was too large to store in the browser and is not available for download."
           : "This document doesn't have a file attached.",
-        variant: "destructive",
       })
       return
     }
@@ -103,16 +100,13 @@ export function DocumentCard({ document, categories, viewMode, onEdit, onDelete 
 
       downloadFile(document.fileContent, fileName)
 
-      toast({
-        title: "Download started",
+      toast.success("Download started", {
         description: `Downloading ${fileName}`,
       })
     } catch (error) {
       console.error("Download error:", error)
-      toast({
-        title: "Download failed",
+      toast.error("Download failed", {
         description: "There was an error downloading the file.",
-        variant: "destructive",
       })
     }
   }

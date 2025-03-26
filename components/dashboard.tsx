@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { DocumentList } from "@/components/document-list"
 import { DocumentSearch } from "@/components/document-search"
 import { CategoryFilter } from "@/components/category-filter"
@@ -50,7 +50,6 @@ export function Dashboard() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [documentToDelete, setDocumentToDelete] = useState<Document | null>(null)
   const [hasDeletedDoc, setHasDeletedDoc] = useState(false)
-  const { toast } = useToast()
 
   // Load data from localStorage on initial render
   useEffect(() => {
@@ -101,10 +100,8 @@ export function Dashboard() {
     // Check if we have enough space
     if (!hasEnoughStorageSpace(documentSize)) {
       const { available } = getLocalStorageUsage()
-      toast({
-        title: "Storage Full",
+      toast.error("Storage Full", {
         description: `Not enough storage space. This document requires approximately ${formatBytes(documentSize)}, but only ${formatBytes(available)} is available. Please delete some documents to free up space.`,
-        variant: "destructive",
       })
       return
     }
@@ -115,12 +112,10 @@ export function Dashboard() {
     if (storageAvailable) {
       const result = saveDocuments(updatedDocuments)
       if (!result.success) {
-        toast({
-          title: "Storage Error",
+        toast.error("Storage Error", {
           description:
             result.error ||
             "Failed to save document due to storage limitations. Please delete some documents to free up space.",
-          variant: "destructive",
         })
         // Revert the state change since we couldn't save
         setDocuments(documents)
@@ -128,8 +123,7 @@ export function Dashboard() {
       }
     }
 
-    toast({
-      title: "Document added",
+    toast.success("Document added", {
       description: `${document.title} has been added successfully.`,
     })
     setUploadDialogOpen(false)
@@ -151,10 +145,8 @@ export function Dashboard() {
 
       if (newSize > oldSize && !hasEnoughStorageSpace(newSize - oldSize)) {
         const { available } = getLocalStorageUsage()
-        toast({
-          title: "Storage Full",
+        toast.error("Storage Full", {
           description: `Not enough storage space. This update requires approximately ${formatBytes(newSize - oldSize)} additional space, but only ${formatBytes(available)} is available. Please delete some documents to free up space.`,
-          variant: "destructive",
         })
         return
       }
@@ -165,12 +157,10 @@ export function Dashboard() {
     if (storageAvailable) {
       const result = saveDocuments(updatedDocuments)
       if (!result.success) {
-        toast({
-          title: "Storage Error",
+        toast.error("Storage Error", {
           description:
             result.error ||
             "Failed to save document due to storage limitations. Please delete some documents to free up space.",
-          variant: "destructive",
         })
         // Revert the state change since we couldn't save
         setDocuments(documents)
@@ -178,8 +168,7 @@ export function Dashboard() {
       }
     }
 
-    toast({
-      title: "Document updated",
+    toast.success("Document updated", {
       description: `${updatedDoc.title} has been updated successfully.`,
     })
   }
@@ -245,23 +234,14 @@ export function Dashboard() {
     setDocumentToDelete(null)
 
     // 6. Show toast with undo option
-    toast({
-      title: "Document deleted",
-      description: (
-        <div className="flex items-center justify-between gap-4">
-          <span>{`"${documentToDelete.title}" has been deleted.`}</span>
-          <button
-            onClick={handleUndoDelete}
-            className="flex items-center text-primary hover:underline font-medium shrink-0"
-          >
-            <Undo2 className="h-4 w-4 mr-1" />
-            Undo
-          </button>
-        </div>
-      ),
-      duration: 5000, // 5 seconds for the toast to disappear
+    toast(`"${documentToDelete.title}" has been deleted.`, {
+      duration: 5000,
+      action: {
+        label: "Undo",
+        onClick: handleUndoDelete,
+      },
     })
-  }, [documentToDelete, documents, storageAvailable, toast])
+  }, [documentToDelete, documents, storageAvailable])
 
   // Cancel deletion
   const handleCancelDelete = useCallback(() => {
@@ -278,10 +258,8 @@ export function Dashboard() {
     const lastDeletedIndex = loadLastDeletedDocumentIndex()
 
     if (!lastDeletedDocument) {
-      toast({
-        title: "Undo failed",
+      toast.error("Undo failed", {
         description: "Could not find the deleted document to restore.",
-        variant: "destructive",
       })
       return
     }
@@ -290,10 +268,8 @@ export function Dashboard() {
     const documentSize = estimateDocumentSize(lastDeletedDocument)
     if (!hasEnoughStorageSpace(documentSize)) {
       const { available } = getLocalStorageUsage()
-      toast({
-        title: "Storage Full",
+      toast.error("Storage Full", {
         description: `Not enough storage space to restore the document. It requires approximately ${formatBytes(documentSize)}, but only ${formatBytes(available)} is available. Please delete some documents to free up space.`,
-        variant: "destructive",
       })
       return
     }
@@ -320,10 +296,8 @@ export function Dashboard() {
       if (storageAvailable) {
         const result = saveDocuments(newDocuments)
         if (!result.success) {
-          toast({
-            title: "Storage Error",
+          toast.error("Storage Error", {
             description: result.error || "Failed to restore document due to storage limitations.",
-            variant: "destructive",
           })
           // Don't update the state if we couldn't save
           return prevDocuments
@@ -334,12 +308,11 @@ export function Dashboard() {
     })
 
     // 5. Show confirmation toast
-    toast({
-      title: "Deletion undone",
+    toast.success("Deletion undone", {
       description: `"${lastDeletedDocument.title}" has been restored.`,
-      duration: 5000, // 5 seconds for the toast to disappear
+      duration: 5000,
     })
-  }, [storageAvailable, toast]) // Removed documents from dependencies
+  }, [storageAvailable]) // Removed documents from dependencies
 
   // Add a new category
   const handleAddCategory = (category: Category) => {
@@ -349,10 +322,8 @@ export function Dashboard() {
     if (storageAvailable) {
       const result = saveCategories(updatedCategories)
       if (!result.success) {
-        toast({
-          title: "Storage Error",
+        toast.error("Storage Error", {
           description: result.error || "Failed to save category due to storage limitations.",
-          variant: "destructive",
         })
         // Revert the state change since we couldn't save
         setCategories(categories)
@@ -360,8 +331,7 @@ export function Dashboard() {
       }
     }
 
-    toast({
-      title: "Category added",
+    toast.success("Category added", {
       description: `${category.name} category has been added.`,
     })
   }

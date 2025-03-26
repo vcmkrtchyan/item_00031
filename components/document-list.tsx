@@ -138,7 +138,7 @@ export function DocumentList({
               ? "Drop your file to upload"
               : "Upload your first document to start managing your personal files. Drag and drop a file here or use the upload button."}
           </p>
-          <Button onClick={onAddClick} className="w-full sm:w-auto justify-center" size="sm" sm:size="lg">
+          <Button onClick={onAddClick} className="w-full sm:w-auto justify-center" size="sm">
             <Upload className="h-4 w-4 mr-2" />
             <span className="sm:hidden">Upload Document</span>
             <span className="hidden sm:inline">Upload Your First Document</span>

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DocumentForm } from "@/components/document-form"
@@ -12,6 +13,7 @@ interface DocumentUploadButtonProps {
   onAddCategory: (category: Category) => void
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  initialFile?: File | null
 }
 
 export function DocumentUploadButton({
@@ -20,12 +22,37 @@ export function DocumentUploadButton({
   onAddCategory,
   open,
   onOpenChange,
+  initialFile = null,
 }: DocumentUploadButtonProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [file, setFile] = useState<File | null>(null)
+
   const isControlled = open !== undefined && onOpenChange !== undefined
+
+  // Update local state when controlled props change
+  useEffect(() => {
+    if (isControlled) {
+      setIsOpen(open)
+    }
+  }, [isControlled, open])
+
+  // Update file when initialFile changes
+  useEffect(() => {
+    if (initialFile) {
+      setFile(initialFile)
+    }
+  }, [initialFile])
 
   const handleOpenChange = (newOpen: boolean) => {
     if (isControlled) {
       onOpenChange(newOpen)
+    } else {
+      setIsOpen(newOpen)
+    }
+
+    // Reset file when dialog is closed
+    if (!newOpen) {
+      setFile(null)
     }
   }
 
@@ -41,12 +68,12 @@ export function DocumentUploadButton({
         Upload Document
       </Button>
 
-      <Dialog open={open} onOpenChange={handleOpenChange}>
+      <Dialog open={isControlled ? open : isOpen} onOpenChange={handleOpenChange}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle>Upload New Document</DialogTitle>
           </DialogHeader>
-          <DocumentForm onSave={handleSave} categories={categories} onAddCategory={onAddCategory} />
+          <DocumentForm onSave={handleSave} categories={categories} onAddCategory={onAddCategory} initialFile={file} />
         </DialogContent>
       </Dialog>
     </>

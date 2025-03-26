@@ -9,8 +9,7 @@ const inter = Inter({ subsets: ["latin"], display: "swap" })
 
 export const metadata: Metadata = {
   title: "Document Manager",
-  description: "Manage your personal documents with ease",
-  // No trailing comma here
+  description: "Organize and track your important documents effortlessly",
     generator: 'v0.dev'
 }
 

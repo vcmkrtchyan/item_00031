@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import type React from "react"
+
+import { useState, useEffect, useCallback } from "react"
 import { DocumentCard } from "@/components/document-card"
 import { DocumentEditDialog } from "@/components/document-edit-dialog"
 import type { Document, Category } from "@/lib/types"
@@ -13,7 +15,9 @@ interface DocumentListProps {
   categories: Category[]
   onUpdateDocument: (document: Document) => void
   onDeleteDocument: (document: Document) => void
+  onAddCategory: (category: Category) => void
   onAddClick?: () => void
+  onFileDrop?: (file: File) => void
   isFiltered?: boolean
   allDocumentsCount?: number
 }
@@ -23,12 +27,15 @@ export function DocumentList({
   categories,
   onUpdateDocument,
   onDeleteDocument,
+  onAddCategory,
   onAddClick,
+  onFileDrop,
   isFiltered = false,
   allDocumentsCount = 0,
 }: DocumentListProps) {
   const [editingDocument, setEditingDocument] = useState<Document | null>(null)
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [isDragging, setIsDragging] = useState(false)
 
   // Add debugging for documents
   useEffect(() => {
@@ -56,9 +63,44 @@ export function DocumentList({
     onDeleteDocument(document)
   }
 
+  // Drag and drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }, [])
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setIsDragging(false)
+
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0]
+        if (onFileDrop) {
+          onFileDrop(file)
+        }
+      }
+    },
+    [onFileDrop],
+  )
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <h2 className="text-xl font-semibold">Your Documents</h2>
         {documents.length > 0 && (
           <Tabs defaultValue={viewMode} onValueChange={(value) => setViewMode(value as "grid" | "list")}>
@@ -77,24 +119,37 @@ export function DocumentList({
       </div>
 
       {documents.length === 0 && !isFiltered && allDocumentsCount === 0 ? (
-        // No documents at all
-        <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg bg-muted/50">
-          <FileIcon className="h-16 w-16 text-muted-foreground mb-4" />
-          <h3 className="text-xl font-medium">No documents yet</h3>
-          <p className="text-muted-foreground text-center mt-2 mb-6 max-w-md">
-            Upload your first document to start managing your personal files in one place.
+        // No documents at all - with drag and drop
+        <div
+          className={`flex flex-col items-center justify-center p-6 sm:p-12 border-2 border-dashed rounded-lg transition-colors ${
+            isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/20 bg-muted/50"
+          }`}
+          onDragOver={handleDragOver}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <FileIcon
+            className={`h-12 w-12 sm:h-16 sm:w-16 mb-3 sm:mb-4 transition-colors ${isDragging ? "text-primary" : "text-muted-foreground"}`}
+          />
+          <h3 className="text-lg sm:text-xl font-medium text-center">No documents yet</h3>
+          <p className="text-sm sm:text-base text-muted-foreground text-center mt-2 mb-4 sm:mb-6 max-w-md px-2">
+            {isDragging
+              ? "Drop your file to upload"
+              : "Upload your first document to start managing your personal files. Drag and drop a file here or use the upload button."}
           </p>
-          <Button onClick={onAddClick} size="lg">
+          <Button onClick={onAddClick} className="w-full sm:w-auto justify-center" size="sm" sm:size="lg">
             <Upload className="h-4 w-4 mr-2" />
-            Upload Your First Document
+            <span className="sm:hidden">Upload Document</span>
+            <span className="hidden sm:inline">Upload Your First Document</span>
           </Button>
         </div>
       ) : documents.length === 0 && isFiltered ? (
         // Documents exist but none match the current filter
-        <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-lg bg-muted/50">
-          <FileIcon className="h-16 w-16 text-muted-foreground mb-4" />
-          <h3 className="text-xl font-medium">No documents in this category</h3>
-          <p className="text-muted-foreground text-center mt-2 mb-6 max-w-md">
+        <div className="flex flex-col items-center justify-center p-6 sm:p-12 border border-dashed rounded-lg bg-muted/50">
+          <FileIcon className="h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground mb-3 sm:mb-4" />
+          <h3 className="text-lg sm:text-xl font-medium text-center">No documents in this category</h3>
+          <p className="text-sm sm:text-base text-muted-foreground text-center mt-2 mb-4 sm:mb-6 max-w-md px-2">
             There are no documents matching your current filter. Try selecting a different category or clear the filter.
           </p>
         </div>
@@ -120,6 +175,7 @@ export function DocumentList({
           categories={categories}
           onSave={handleSaveEdit}
           onCancel={handleCloseEdit}
+          onAddCategory={onAddCategory}
           open={!!editingDocument}
         />
       )}

@@ -2,11 +2,11 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Plus, Upload } from "lucide-react"
+import { Plus, Upload, FileText } from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
 import type { Document, Category } from "@/lib/types"
 import { Button } from "@/components/ui/button"
@@ -30,62 +30,123 @@ const ACCEPTED_FILE_TYPES = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 ]
 
-const formSchema = z.object({
-  title: z.string().min(2, {
-    message: "Title must be at least 2 characters.",
-  }),
-  category: z.string().min(1, {
-    message: "Please select a category.",
-  }),
-  expiryDate: z.string().optional(),
-  notes: z.string().optional(),
-  file: z.any().optional(),
-})
+// Helper function to compare dates without time
+const isBeforeToday = (dateString: string): boolean => {
+  const inputDate = new Date(dateString)
+  const today = new Date()
+
+  // Reset time components to compare dates only
+  inputDate.setHours(0, 0, 0, 0)
+  today.setHours(0, 0, 0, 0)
+
+  return inputDate < today
+}
 
 interface DocumentFormProps {
   document?: Document
   categories: Category[]
   onSave: (document: Document) => void
   onAddCategory: (category: Category) => void
+  initialFile?: File | null
 }
 
-export function DocumentForm({ document, categories, onSave, onAddCategory }: DocumentFormProps) {
+export function DocumentForm({ document, categories, onSave, onAddCategory, initialFile = null }: DocumentFormProps) {
   const [file, setFile] = useState<File | null>(null)
   const [fileError, setFileError] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [newCategoryDialogOpen, setNewCategoryDialogOpen] = useState(false)
   const [newCategory, setNewCategory] = useState("")
+  const [customFileLabel, setCustomFileLabel] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Create a dynamic schema based on whether we're editing an existing document
+  const formSchema = z.object({
+    title: z.string().min(2, {
+      message: "Title must be at least 2 characters.",
+    }),
+    category: z.string().min(1, {
+      message: "Please select a category.",
+    }),
+    expiryDate: z
+      .string()
+      .refine((date) => !date || !isBeforeToday(date), {
+        message: "Expiry date cannot be before today",
+      })
+      .optional(),
+    notes: z.string().optional(),
+    file: document?.fileContent
+      ? z
+          .any()
+          .optional() // File is optional when editing a document that already has a file
+      : z.any().refine((file) => file instanceof File || file?.name, {
+          message: "A file is required",
+        }),
+  })
+
+  // Check if the document's expiry date is valid (not before today)
+  const isExpiryDateValid = (date?: string) => {
+    if (!date) return true
+    return !isBeforeToday(date)
+  }
+
+  // Get today's date in YYYY-MM-DD format for the min attribute
+  const today = new Date().toISOString().split("T")[0]
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: document?.title || "",
       category: document?.category || "",
-      expiryDate: document?.expiryDate ? new Date(document.expiryDate).toISOString().split("T")[0] : "",
+      expiryDate:
+        document?.expiryDate && isExpiryDateValid(document.expiryDate)
+          ? new Date(document.expiryDate).toISOString().split("T")[0]
+          : "",
       notes: document?.notes || "",
       file: undefined,
     },
   })
 
+  // Handle initial file when it changes
+  useEffect(() => {
+    if (initialFile) {
+      setFile(initialFile)
+      validateFile(initialFile)
+      form.setValue("file", initialFile)
+      setCustomFileLabel(`${initialFile.name} (${(initialFile.size / 1024).toFixed(1)} KB)`)
+    }
+  }, [initialFile, form])
+
+  const validateFile = (selectedFile: File): boolean => {
+    setFileError(null)
+
+    // Validate file size
+    if (selectedFile.size > MAX_FILE_SIZE) {
+      setFileError(`File size should be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB`)
+      return false
+    }
+
+    // Validate file type
+    if (!ACCEPTED_FILE_TYPES.includes(selectedFile.type)) {
+      setFileError("File type not supported. Please upload PDF, image, or document files.")
+      return false
+    }
+
+    return true
+  }
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFileError(null)
+    setCustomFileLabel(null)
 
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0]
 
-      // Validate file size
-      if (selectedFile.size > MAX_FILE_SIZE) {
-        setFileError(`File size should be less than ${MAX_FILE_SIZE / (1024 * 1024)}MB`)
-        return
+      if (validateFile(selectedFile)) {
+        setFile(selectedFile)
+        form.setValue("file", selectedFile)
+      } else {
+        form.setValue("file", undefined)
       }
-
-      // Validate file type
-      if (!ACCEPTED_FILE_TYPES.includes(selectedFile.type)) {
-        setFileError("File type not supported. Please upload PDF, image, or document files.")
-        return
-      }
-
-      setFile(selectedFile)
     }
   }
 
@@ -95,7 +156,7 @@ export function DocumentForm({ document, categories, onSave, onAddCategory }: Do
       onAddCategory({
         category: categoryId,
         name: newCategory,
-        color: "blue",
+        color: "black",
       })
       setNewCategory("")
       setNewCategoryDialogOpen(false)
@@ -105,6 +166,24 @@ export function DocumentForm({ document, categories, onSave, onAddCategory }: Do
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (fileError) {
+      return
+    }
+
+    // Double-check expiry date is not before today
+    if (values.expiryDate && isBeforeToday(values.expiryDate)) {
+      form.setError("expiryDate", {
+        type: "manual",
+        message: "Expiry date cannot be before today",
+      })
+      return
+    }
+
+    // Check if we have a file (either a new one or an existing one)
+    if (!file && !document?.fileContent) {
+      form.setError("file", {
+        type: "manual",
+        message: "A file is required",
+      })
       return
     }
 
@@ -256,7 +335,7 @@ export function DocumentForm({ document, categories, onSave, onAddCategory }: Do
               <FormItem>
                 <FormLabel>Expiry Date (Optional)</FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} />
+                  <Input type="date" min={today} {...field} />
                 </FormControl>
                 <FormDescription>Leave blank if the document doesn't expire</FormDescription>
                 <FormMessage />
@@ -269,29 +348,59 @@ export function DocumentForm({ document, categories, onSave, onAddCategory }: Do
             name="file"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Document File</FormLabel>
+                <FormLabel>Document File{document?.fileContent ? " (Optional)" : " *"}</FormLabel>
                 <FormControl>
                   <div className="flex flex-col gap-2">
-                    <Input
+                    {/* Hidden original file input for browser compatibility */}
+                    <input
+                      ref={fileInputRef}
                       type="file"
                       onChange={(e) => {
                         handleFileChange(e)
-                        // This is important - we need to call the onChange from the field
-                        field.onChange(e.target.files?.[0] || null)
                       }}
-                      className="cursor-pointer"
+                      className="hidden"
                       accept={ACCEPTED_FILE_TYPES.join(",")}
                       disabled={isUploading}
                     />
-                    {file && (
-                      <p className="text-xs text-muted-foreground">
-                        Selected: {file.name} ({(file.size / 1024).toFixed(1)} KB)
-                      </p>
-                    )}
-                    {fileError && <p className="text-xs text-destructive">{fileError}</p>}
+
+                    {/* Custom file input UI */}
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
+                        <div
+                          className="flex-1 border rounded-md px-3 py-2 text-sm bg-background cursor-pointer hover:bg-accent/50 transition-colors"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          {customFileLabel ||
+                            file?.name ||
+                            (document?.fileContent && !file ? document.fileName : "Choose file...")}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      {file && !customFileLabel && (
+                        <p className="text-xs text-muted-foreground">
+                          Selected: {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                        </p>
+                      )}
+                      {document?.fileContent && !file && !customFileLabel && (
+                        <p className="text-xs text-muted-foreground">Current file: {document.fileName}</p>
+                      )}
+                      {fileError && <p className="text-xs text-destructive">{fileError}</p>}
+                    </div>
                   </div>
                 </FormControl>
-                <FormDescription>Upload PDF, image, or document file (max 5MB)</FormDescription>
+                <FormDescription>
+                  {document?.fileContent
+                    ? "Upload a new file to replace the current one (max 5MB)"
+                    : "Upload PDF, image, or document file (max 5MB)"}
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}

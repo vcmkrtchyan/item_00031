@@ -9,17 +9,25 @@ interface DocumentEditDialogProps {
   categories: Category[]
   onSave: (document: Document) => void
   onCancel: () => void
+  onAddCategory: (category: Category) => void
   open: boolean
 }
 
-export function DocumentEditDialog({ document, categories, onSave, onCancel, open }: DocumentEditDialogProps) {
+export function DocumentEditDialog({
+  document,
+  categories,
+  onSave,
+  onCancel,
+  onAddCategory,
+  open,
+}: DocumentEditDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onCancel()}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Edit Document</DialogTitle>
         </DialogHeader>
-        <DocumentForm document={document} categories={categories} onSave={onSave} onAddCategory={() => {}} />
+        <DocumentForm document={document} categories={categories} onSave={onSave} onAddCategory={onAddCategory} />
       </DialogContent>
     </Dialog>
   )

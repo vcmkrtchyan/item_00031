@@ -17,18 +17,32 @@ export function ExpiryNotifications({ documents }: ExpiryNotificationsProps) {
     return null
   }
 
-  // Get documents expiring in the next 30 days
+  const isToday = (date: Date): boolean => {
+    const today = new Date()
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    )
+  }
+
+  // Get expired documents (excluding today)
+  const expiredDocuments = documents.filter(
+    (doc) =>
+      doc.expiryDate &&
+      !dismissed.includes(doc.id) &&
+      new Date(doc.expiryDate) < new Date() &&
+      !isToday(new Date(doc.expiryDate)),
+  )
+
+  // Update the expiringDocuments to include today
   const expiringDocuments = documents.filter(
     (doc) =>
       doc.expiryDate &&
       !dismissed.includes(doc.id) &&
-      new Date(doc.expiryDate) > new Date() &&
-      new Date(doc.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-  )
-
-  // Get expired documents
-  const expiredDocuments = documents.filter(
-    (doc) => doc.expiryDate && !dismissed.includes(doc.id) && new Date(doc.expiryDate) < new Date(),
+      (isToday(new Date(doc.expiryDate)) || // Include today as expiring soon
+        (new Date(doc.expiryDate) > new Date() &&
+          new Date(doc.expiryDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))),
   )
 
   const handleDismiss = (id: string) => {

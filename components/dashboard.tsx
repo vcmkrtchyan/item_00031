@@ -16,7 +16,6 @@ import {
   saveCategories,
   isStorageAvailable,
   saveLastDeletedDocument,
-  loadLastDeletedDocument,
   loadLastDeletedDocumentIndex,
   clearLastDeletedDocument,
   hasLastDeletedDocument,
@@ -24,6 +23,7 @@ import {
   hasEnoughStorageSpace,
   formatBytes,
   getLocalStorageUsage,
+  loadLastDeletedDocument,
 } from "@/lib/storage-utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, Loader2, AlertTriangle, Undo2 } from "lucide-react"
@@ -43,6 +43,7 @@ export function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+  const [droppedFile, setDroppedFile] = useState<File | null>(null)
   const [storageAvailable, setStorageAvailable] = useState(true)
   const [storageWarning, setStorageWarning] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -132,6 +133,7 @@ export function Dashboard() {
       description: `${document.title} has been added successfully.`,
     })
     setUploadDialogOpen(false)
+    setDroppedFile(null)
   }
 
   // Update an existing document
@@ -246,9 +248,12 @@ export function Dashboard() {
     toast({
       title: "Document deleted",
       description: (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <span>{`"${documentToDelete.title}" has been deleted.`}</span>
-          <button onClick={handleUndoDelete} className="flex items-center text-primary hover:underline font-medium">
+          <button
+            onClick={handleUndoDelete}
+            className="flex items-center text-primary hover:underline font-medium shrink-0"
+          >
             <Undo2 className="h-4 w-4 mr-1" />
             Undo
           </button>
@@ -332,6 +337,7 @@ export function Dashboard() {
     toast({
       title: "Deletion undone",
       description: `"${lastDeletedDocument.title}" has been restored.`,
+      duration: 5000, // 5 seconds for the toast to disappear
     })
   }, [storageAvailable, toast]) // Removed documents from dependencies
 
@@ -361,6 +367,12 @@ export function Dashboard() {
   }
 
   const openUploadDialog = () => {
+    setUploadDialogOpen(true)
+  }
+
+  // Handle file drop
+  const handleFileDrop = (file: File) => {
+    setDroppedFile(file)
     setUploadDialogOpen(true)
   }
 
@@ -395,6 +407,7 @@ export function Dashboard() {
             onAddCategory={handleAddCategory}
             open={uploadDialogOpen}
             onOpenChange={setUploadDialogOpen}
+            initialFile={droppedFile}
           />
         </div>
       </header>
@@ -440,7 +453,9 @@ export function Dashboard() {
         categories={categories}
         onUpdateDocument={handleUpdateDocument}
         onDeleteDocument={initiateDeleteDocument}
+        onAddCategory={handleAddCategory}
         onAddClick={openUploadDialog}
+        onFileDrop={handleFileDrop}
         isFiltered={searchQuery !== "" || selectedCategory !== null}
         allDocumentsCount={documents.length}
       />
